@@ -82,6 +82,9 @@ Pass `--checkpoint <file>` to evaluate a saved model without training. SMELP rea
   It is seeded per utterance.
   It uses the GPU when one is available, but results are only bit-reproducible on the same device and software stack.
 - The LP baseline defaults to order 18, which is the setting that produced the row above. All other methods use order 16.
+- This release gives LP-DDSP 131 / 224 / 271 / 366, mean 248 Hz, on the test set (CPU).
+  The 246 Hz row above came from an earlier run whose initialisation differed slightly.
+  The gap is well inside the 95% confidence interval (±12 Hz).
 
 ## Citation
 
