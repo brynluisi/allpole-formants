@@ -1,0 +1,7 @@
+torch>=2.0
+numpy
+scipy
+soundfile
+matplotlib
+tqdm
+praat-parselmouth  # only for praat_baseline.py
