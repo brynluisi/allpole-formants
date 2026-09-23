@@ -96,3 +96,7 @@ Pass `--checkpoint <file>` to evaluate a saved model without training. SMELP rea
   year      = {2026}
 }
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
