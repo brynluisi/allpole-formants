@@ -24,45 +24,91 @@ demo.py              LP vs LP-DDSP on any 16 kHz wav file
 
 ## Setup
 
+You need Python 3.10–3.13 and git. From a terminal:
+
 ```bash
+git clone https://github.com/brynluisi/allpole-formants.git
+cd allpole-formants
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-To try LP-DDSP on your own recording, without any dataset:
+This creates a self-contained environment in `.venv/` with the pinned package versions the results were produced with.
+Run `source .venv/bin/activate` again in each new terminal before using the scripts.
+
+On Linux, the default `torch` wheel from PyPI includes CUDA support.
+For a different CUDA version, install PyTorch first by following [pytorch.org](https://pytorch.org/get-started/locally/), then run `pip install -r requirements.txt`.
+
+## Quick start (no dataset needed)
+
+Run the LP baseline and LP-DDSP on any 16 kHz mono wav file:
 
 ```bash
-python demo.py speech.wav   # writes demo.png: LP and LP-DDSP envelopes with formant tracks
+python demo.py path/to/speech.wav
 ```
+
+This writes `demo.png`: the LP and LP-DDSP spectral envelopes over time, with the estimated formant tracks.
+It takes a minute or two on a laptop CPU. Add `--steps 300` for a faster, rougher preview.
 
 ## Data
 
 The experiments use [TIMIT](https://catalog.ldc.upenn.edu/LDC93S1) (LDC, licence required) and the VTR Formants ground truth.
 VTR Formants is from Deng et al., "A database of vocal tract resonance trajectories for research in speech processing", ICASSP 2006.
-Arrange them as follows (directory-name case does not matter):
+Put both under one directory (directory-name case does not matter):
 
 ```
-$DATA_ROOT/TIMIT/{train,test}/<dr>/<speaker>/<utt>.wav
-$DATA_ROOT/VTRFormants/{train,test}/<dr>/<speaker>/<utt>.fb   (+ <utt>.phn)
+<data_root>/TIMIT/{train,test}/<dr>/<speaker>/<utt>.wav
+<data_root>/VTRFormants/{train,test}/<dr>/<speaker>/<utt>.fb   (+ <utt>.phn)
 ```
 
-This gives 324 train and 192 test utterances. Every script takes `--data_root`, or reads the `DATA_ROOT` environment variable.
+This gives 324 train and 192 test utterances.
+Tell the scripts where the data is, either once per terminal:
+
+```bash
+export DATA_ROOT=/path/to/data_root
+```
+
+or with `--data_root /path/to/data_root` on each command.
 
 ## Reproducing the results
 
+With the environment activated and `DATA_ROOT` set, run from the repository folder:
+
+```bash
+python lp_baseline.py        # LP baseline         (~1 min on CPU)
+python praat_baseline.py     # Praat               (~1 min on CPU)
+python lp_ddsp.py            # LP-DDSP             (~20 min on CPU, faster on GPU)
+python lp_lstm.py            # LP-LSTM: trains, then evaluates
+python smelp.py              # SMELP: trains, then evaluates (GPU recommended)
+```
+
+Each script evaluates on the test set by default; use `--split train` for the training set.
+Each prints the RMSE per formant and writes per-utterance results to `results/<method>/<split>.csv`.
 Scoring happens every 10 ms, only on frames inside vowels, nasals, liquids, glides, voiced fricatives and voiced stops.
 The metric is the RMSE per utterance, averaged over utterances.
-Each run prints the mean and writes per-utterance RMSEs to `results/<method>/<split>.csv`.
 
-| Method | Command | F1 | F2 | F3 | F4 | Mean |
+Test-set RMSE (Hz) reported in the paper:
+
+| Method | Script | F1 | F2 | F3 | F4 | Mean |
 |---|---|---|---|---|---|---|
-| LP baseline | `python lp_baseline.py` | 163 | 299 | 389 | 662 | 378 |
-| LP-DDSP | `python lp_ddsp.py` | 131 | 222 | 268 | 362 | 246 |
-| Praat | `python praat_baseline.py` | 257 | 350 | 413 | 356 | 344 |
-| LP-LSTM | `python lp_lstm.py` | 107 | 145 | 183 | 249 | 171 |
-| SMELP | `python smelp.py` | 100 | 141 | 195 | 230 | 166 |
+| LP baseline | `lp_baseline.py` | 163 | 299 | 389 | 662 | 378 |
+| LP-DDSP | `lp_ddsp.py` | 131 | 222 | 268 | 362 | 246 |
+| Praat | `praat_baseline.py` | 257 | 350 | 413 | 356 | 344 |
+| LP-LSTM | `lp_lstm.py` | 107 | 145 | 183 | 249 | 171 |
+| SMELP | `smelp.py` | 100 | 141 | 195 | 230 | 166 |
 
-The table shows test-set RMSE in Hz as reported in the paper.
 TV-QCP and KARMA were run with their authors' MATLAB implementations and are not included here.
+
+**Confidence intervals and significance:** compare any set of result files:
+
+```bash
+python stats.py results/lp_baseline/test.csv "results/lp_ddsp_l1+l2+reg/test.csv" \
+    --reference "results/lp_ddsp_l1+l2+reg/test.csv"
+```
+
+This prints the mean ± 95% confidence interval per formant.
+With `--reference`, it adds a paired Wilcoxon test of each file against the reference.
 
 **LP-DDSP loss ablation (training set):**
 
@@ -73,9 +119,14 @@ done
 python stats.py results/lp_ddsp_*/train.csv --reference "results/lp_ddsp_l1+l2+reg/train.csv"
 ```
 
-**Training:** `lp_lstm.py` and `smelp.py` train on the training split for 100 epochs.
-They save a checkpoint to `checkpoints/` and then evaluate.
-Pass `--checkpoint <file>` to evaluate a saved model without training. SMELP realistically needs a GPU.
+**Training the neural models:** `lp_lstm.py` and `smelp.py` train on the training split for 100 epochs (`--epochs`).
+They save the weights to `checkpoints/` and then evaluate.
+To evaluate a saved model without retraining:
+
+```bash
+python smelp.py --checkpoint checkpoints/smelp.pt
+python lp_lstm.py --checkpoint checkpoints/lp_lstm.pt
+```
 
 **Notes:**
 - LP-DDSP runs 1500 Adam steps per utterance (learning rate 0.1, cosine decay), starting from N(0, 0.2) LARs.

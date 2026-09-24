@@ -1,7 +1,8 @@
-torch>=2.0
-numpy
-scipy
-soundfile
-matplotlib
-tqdm
-praat-parselmouth  # only for praat_baseline.py
+# Tested with Python 3.10-3.13
+torch==2.8.0
+numpy==2.2.6
+scipy==1.15.3
+soundfile==0.13.1
+matplotlib==3.10.6
+tqdm==4.67.1
+praat-parselmouth==0.4.6
