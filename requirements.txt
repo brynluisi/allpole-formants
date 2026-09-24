@@ -6,3 +6,4 @@ soundfile==0.13.1
 matplotlib==3.10.6
 tqdm==4.67.1
 praat-parselmouth==0.4.6
+certifi==2026.7.22

@@ -2,6 +2,9 @@
 
     python lp_lstm.py --data_root /path/to/data                       # train, save, evaluate on test
     python lp_lstm.py --data_root /path/to/data --checkpoint ckpt.pt  # evaluate only
+
+--checkpoint checkpoints/lp_lstm.pt downloads the released weights from
+https://huggingface.co/Aalto-Speech-Synthesis/smelp on first use.
 """
 import argparse
 import os
@@ -13,6 +16,7 @@ from tqdm import tqdm
 from allpole.data import load_split
 from allpole.dsp import Emphasis, LinearPredictor
 from allpole.evaluate import Scorer
+from allpole.hub import ensure_checkpoint
 from allpole.models import FormantDecoder
 
 
@@ -62,6 +66,7 @@ if __name__ == "__main__":
     emphasis = Emphasis(0.97).to(device)
 
     if args.checkpoint:
+        ensure_checkpoint("lp_lstm", args.checkpoint, "--checkpoint")
         model.load_state_dict(torch.load(args.checkpoint, map_location=device))
     else:
         train(model, load_split(args.data_root, "train"), lpc, emphasis, args.epochs, device)
