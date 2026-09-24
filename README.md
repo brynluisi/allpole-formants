@@ -158,11 +158,14 @@ python lp_lstm.py --checkpoint checkpoints/lp_lstm.pt
 ## Citation
 
 ```bibtex
-@inproceedings{luisi2026smooth,
+@inproceedings{luisi26_interspeech,
   title     = {Smooth Formant Tracking with Differentiable Linear Prediction},
-  author    = {Luisi, Bryn and Juvela, Lauri},
-  booktitle = {Proc. Interspeech},
-  year      = {2026}
+  author    = {Bryn Luisi and Lauri Juvela},
+  year      = {2026},
+  booktitle = {{Interspeech 2026}},
+  pages     = {1828--1832},
+  doi       = {10.21437/Interspeech.2026-1222},
+  issn      = {2958-1796},
 }
 ```
 
