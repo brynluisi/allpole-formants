@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data_root", default=os.environ.get("DATA_ROOT"), required="DATA_ROOT" not in os.environ)
     parser.add_argument("--split", default="test", choices=["train", "test"])
-    parser.add_argument("--order", type=int, default=18)  # order used for the reported LP baseline row
+    parser.add_argument("--order", type=int, default=18)
     args = parser.parse_args()
 
     scorer = Scorer("lp_baseline", args.split)

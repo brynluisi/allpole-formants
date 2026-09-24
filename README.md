@@ -19,7 +19,7 @@ lp_lstm.py           LP-LSTM baseline
 smelp.py             SMELP
 praat_baseline.py    Praat baseline (via parselmouth)
 stats.py             mean RMSE with 95% confidence intervals, paired Wilcoxon tests
-demo.py              LP vs LP-DDSP on any 16 kHz wav file
+demo.py              run any combination of the methods on a single 16 kHz wav file
 ```
 
 ## Setup
@@ -50,6 +50,24 @@ python demo.py path/to/speech.wav
 
 This writes `demo.png`: the LP and LP-DDSP spectral envelopes over time, with the estimated formant tracks.
 It takes a minute or two on a laptop CPU. Add `--steps 300` for a faster, rougher preview.
+
+`--models` picks any one method or any combination of them, one panel each:
+
+```bash
+python demo.py path/to/speech.wav --models lp_ddsp                    # a single method
+python demo.py path/to/speech.wav --models lp_baseline praat lp_ddsp  # any combination
+python demo.py path/to/speech.wav --models all                        # all five
+```
+
+The choices are `lp_baseline`, `praat`, `lp_ddsp`, `lp_lstm`, `smelp` and `all`.
+Each panel shows that method's own all-pole envelope where it has one, and the signal's spectrogram
+where it does not (Praat and LP-LSTM), with the formant tracks on top.
+
+`lp_lstm` and `smelp` are trained models, so they need a checkpoint: they default to
+`checkpoints/lp_lstm.pt` and `checkpoints/smelp.pt` as written by `lp_lstm.py` and `smelp.py`
+(see [Training the neural models](#reproducing-the-results)), and
+`--lp_lstm_checkpoint` / `--smelp_checkpoint` point elsewhere. Missing checkpoints are reported
+before anything runs. `praat` additionally needs `parselmouth`, which `requirements.txt` installs.
 
 ## Data
 
