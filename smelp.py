@@ -5,6 +5,9 @@ Loss = L_DDSP (L2 + 0.5 L1 + 0.1 reg) + 0.1 * MSE(a, a_LP)  [L_coeff] + MSE(log 
 
     python smelp.py --data_root /path/to/data                       # train, save, evaluate on test
     python smelp.py --data_root /path/to/data --checkpoint ckpt.pt  # evaluate only
+
+--checkpoint checkpoints/smelp.pt downloads the released weights from
+https://huggingface.co/Aalto-Speech-Synthesis/smelp on first use.
 """
 import argparse
 import os
@@ -16,6 +19,7 @@ from tqdm import tqdm
 from allpole.data import load_split
 from allpole.dsp import Emphasis, LinearPredictor, lar_to_poly
 from allpole.evaluate import Scorer
+from allpole.hub import ensure_checkpoint
 from allpole.models import FormantDecoder, LarEncoder
 from lp_ddsp import ddsp_loss
 
@@ -60,6 +64,7 @@ if __name__ == "__main__":
     emphasis = Emphasis(0.97).to(device)
 
     if args.checkpoint:
+        ensure_checkpoint("smelp", args.checkpoint, "--checkpoint")
         ckpt = torch.load(args.checkpoint, map_location=device)
         cnn.load_state_dict(ckpt["cnn"])
         lstm.load_state_dict(ckpt["lstm"])

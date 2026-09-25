@@ -1,11 +1,13 @@
 """Run any combination of the included formant trackers on a single 16 kHz wav file and plot them.
 
-    python demo.py speech.wav                                   # LP baseline and LP-DDSP (the default)
-    python demo.py speech.wav --models all
-    python demo.py speech.wav --models lp_ddsp --steps 300
-    python demo.py speech.wav --models lp_baseline praat smelp --smelp_checkpoint checkpoints/smelp.pt
+    python run.py speech.wav                                   # LP baseline and LP-DDSP (the default)
+    python run.py speech.wav --models all
+    python run.py speech.wav --models lp_ddsp --steps 300
+    python run.py speech.wav --models lp_baseline praat smelp     # fetches smelp.pt from the Hub
 
-lp_lstm and smelp are trained models: they run only from a checkpoint saved by lp_lstm.py / smelp.py.
+lp_lstm and smelp are trained models: they run from a checkpoint saved by lp_lstm.py / smelp.py, or
+(at the default --lp_lstm_checkpoint / --smelp_checkpoint path) downloaded automatically on first
+use from https://huggingface.co/Aalto-Speech-Synthesis/smelp .
 Panels show each method's own all-pole envelope where it has one, and the signal's spectrogram
 otherwise, with the estimated formant tracks on top.
 """
@@ -18,6 +20,7 @@ import torch
 
 from allpole.data import log_spectrogram
 from allpole.dsp import Emphasis, LinearPredictor, envelope_db, get_formants, lar_to_poly
+from allpole.hub import DEFAULT_PATHS as TRAINED, ensure_checkpoint
 from allpole.models import FormantDecoder, LarEncoder
 from lp_baseline import lp_formants
 from lp_ddsp import lp_ddsp
@@ -27,7 +30,6 @@ HOP_LENGTH = 160
 MODELS = ["lp_baseline", "praat", "lp_ddsp", "lp_lstm", "smelp"]  # panel order, as in the README table
 LABELS = {"lp_baseline": "LP baseline", "praat": "Praat", "lp_ddsp": "LP-DDSP",
           "lp_lstm": "LP-LSTM", "smelp": "SMELP"}
-TRAINED = {"lp_lstm": "checkpoints/lp_lstm.pt", "smelp": "checkpoints/smelp.pt"}  # default checkpoints
 
 
 def load_weights(module, state, model, path, order):
@@ -90,19 +92,22 @@ def select(names):
 
 
 def check_available(models, args):
-    """Fail before any model runs: LP-DDSP alone takes minutes. Report every missing checkpoint at once."""
-    missing = [(m, getattr(args, f"{m}_checkpoint")) for m in models
-               if m in TRAINED and not os.path.isfile(getattr(args, f"{m}_checkpoint"))]
-    if missing:
-        raise SystemExit("\n".join(
-            [f"{m} is a trained model and needs a checkpoint, but {path} was not found. "
-             f"Train it with `python {m}.py`, or pass --{m}_checkpoint /path/to/weights.pt"
-             for m, path in missing]))
+    """Fail before any model runs: LP-DDSP alone takes minutes. Report every problem at once,
+    rather than the first one hit -- a failed download shouldn't hide a second model's issue,
+    or a missing parselmouth."""
+    for m in models:
+        if m in TRAINED:
+            ensure_checkpoint(m, getattr(args, f"{m}_checkpoint"), f"--{m}_checkpoint", raise_on_error=False)
+    problems = [f"{m} is a trained model and needs a checkpoint, but {getattr(args, f'{m}_checkpoint')} "
+               f"was not found. Train it with `python {m}.py`, or pass --{m}_checkpoint /path/to/weights.pt"
+               for m in models if m in TRAINED and not os.path.isfile(getattr(args, f"{m}_checkpoint"))]
     if "praat" in models:
         try:
             import parselmouth  # noqa: F401
         except ImportError:
-            raise SystemExit("praat needs parselmouth: pip install praat-parselmouth")
+            problems.append("praat needs parselmouth: pip install praat-parselmouth")
+    if problems:
+        raise SystemExit("\n".join(problems))
 
 
 def plot(panels, spec, fs, out):
@@ -135,9 +140,11 @@ if __name__ == "__main__":
                         metavar="MODEL", help=f"any of: {', '.join(MODELS)}, all")
     parser.add_argument("--order", type=int, default=16, help="LP order, shared by every method (Praat aside)")
     parser.add_argument("--steps", type=int, default=1500, help="LP-DDSP optimisation steps")
-    parser.add_argument("--lp_lstm_checkpoint", default=TRAINED["lp_lstm"])
-    parser.add_argument("--smelp_checkpoint", default=TRAINED["smelp"])
-    parser.add_argument("--out", default="demo.png")
+    parser.add_argument("--lp_lstm_checkpoint", default=TRAINED["lp_lstm"],
+                        help="downloaded from the Hub on first use if left at the default path")
+    parser.add_argument("--smelp_checkpoint", default=TRAINED["smelp"],
+                        help="downloaded from the Hub on first use if left at the default path")
+    parser.add_argument("--out", default="run.png")
     args = parser.parse_args()
 
     models = select(args.models)

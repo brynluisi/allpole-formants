@@ -13,13 +13,14 @@ allpole/dsp.py       differentiable LP: STFT-domain filtering, Levinson recursio
 allpole/data.py      TIMIT + VTR Formants loader and the scoring mask
 allpole/models.py    CNN LAR encoder and BiLSTM formant decoder
 allpole/evaluate.py  per-utterance RMSE
+allpole/hub.py       downloads lp_lstm/smelp checkpoints from Hugging Face
 lp_baseline.py       LP baseline
 lp_ddsp.py           LP-DDSP (and its loss ablations)
 lp_lstm.py           LP-LSTM baseline
 smelp.py             SMELP
 praat_baseline.py    Praat baseline (via parselmouth)
 stats.py             mean RMSE with 95% confidence intervals, paired Wilcoxon tests
-demo.py              run any combination of the methods on a single 16 kHz wav file
+run.py               run any combination of the methods on a single 16 kHz wav file
 ```
 
 ## Setup
@@ -42,32 +43,42 @@ For a different CUDA version, install PyTorch first by following [pytorch.org](h
 
 ## Quick start (no dataset needed)
 
-Run the LP baseline and LP-DDSP on any 16 kHz mono wav file:
+Run any combination of the five methods on a single 16 kHz mono wav file:
 
 ```bash
-python demo.py path/to/speech.wav
+python run.py path/to/speech.wav                                    # LP baseline + LP-DDSP (default)
+python run.py path/to/speech.wav --models lp_ddsp                   # a single method
+python run.py path/to/speech.wav --models lp_lstm                   # pretrained LP-LSTM
+python run.py path/to/speech.wav --models smelp                     # pretrained SMELP
+python run.py path/to/speech.wav --models lp_baseline praat smelp   # any combination
+python run.py path/to/speech.wav --models all                       # all five
 ```
 
-This writes `demo.png`: the LP and LP-DDSP spectral envelopes over time, with the estimated formant tracks.
-It takes a minute or two on a laptop CPU. Add `--steps 300` for a faster, rougher preview.
+Choices: `lp_baseline`, `praat`, `lp_ddsp`, `lp_lstm`, `smelp`, `all`.
+This writes `run.png`: each method's spectral envelope (or, for Praat and LP-LSTM, the signal's
+spectrogram) with the estimated formant tracks on top. Add `--steps 300` to speed up LP-DDSP's
+per-utterance optimisation. `praat` needs `parselmouth`, already in `requirements.txt`.
 
-`--models` picks any one method or any combination of them, one panel each:
+### Pretrained models (Hugging Face)
+
+`lp_lstm` and `smelp` are trained models, but you don't need to train them yourself: the first time
+you ask for either, the paper's checkpoints are downloaded from
+[huggingface.co/Aalto-Speech-Synthesis/smelp](https://huggingface.co/Aalto-Speech-Synthesis/smelp) to
+`checkpoints/lp_lstm.pt` / `checkpoints/smelp.pt` and reused after that — no account or token needed.
+`lp_lstm.py --checkpoint checkpoints/lp_lstm.pt` / `smelp.py --checkpoint checkpoints/smelp.pt` fetch
+the same way (see [Training the neural models](#training-the-neural-models)), reproducing the paper's
+rows on your own `DATA_ROOT` without training anything.
+
+To fetch the weights yourself instead — e.g. to work offline afterwards:
 
 ```bash
-python demo.py path/to/speech.wav --models lp_ddsp                    # a single method
-python demo.py path/to/speech.wav --models lp_baseline praat lp_ddsp  # any combination
-python demo.py path/to/speech.wav --models all                        # all five
+mkdir -p checkpoints
+curl -L -o checkpoints/lp_lstm.pt https://huggingface.co/Aalto-Speech-Synthesis/smelp/resolve/main/lp_lstm.pt
+curl -L -o checkpoints/smelp.pt   https://huggingface.co/Aalto-Speech-Synthesis/smelp/resolve/main/smelp.pt
 ```
 
-The choices are `lp_baseline`, `praat`, `lp_ddsp`, `lp_lstm`, `smelp` and `all`.
-Each panel shows that method's own all-pole envelope where it has one, and the signal's spectrogram
-where it does not (Praat and LP-LSTM), with the formant tracks on top.
-
-`lp_lstm` and `smelp` are trained models, so they need a checkpoint: they default to
-`checkpoints/lp_lstm.pt` and `checkpoints/smelp.pt` as written by `lp_lstm.py` and `smelp.py`
-(see [Training the neural models](#reproducing-the-results)), and
-`--lp_lstm_checkpoint` / `--smelp_checkpoint` point elsewhere. Missing checkpoints are reported
-before anything runs. `praat` additionally needs `parselmouth`, which `requirements.txt` installs.
+`--lp_lstm_checkpoint` / `--smelp_checkpoint` point at a different file instead, e.g. one you trained
+yourself — an explicitly-named checkpoint is never auto-downloaded, so a missing one just errors.
 
 ## Data
 
@@ -137,13 +148,22 @@ done
 python stats.py results/lp_ddsp_*/train.csv --reference "results/lp_ddsp_l1+l2+reg/train.csv"
 ```
 
-**Training the neural models:** `lp_lstm.py` and `smelp.py` train on the training split for 100 epochs (`--epochs`).
-They save the weights to `checkpoints/` and then evaluate.
-To evaluate a saved model without retraining:
+### Training the neural models
+
+`lp_lstm.py` and `smelp.py` train on the training split for 100 epochs (`--epochs`), save the
+weights (`--save`, default `checkpoints/<model>.pt`), then evaluate on the test split:
 
 ```bash
-python smelp.py --checkpoint checkpoints/smelp.pt
-python lp_lstm.py --checkpoint checkpoints/lp_lstm.pt
+python lp_lstm.py --data_root /path/to/data
+python smelp.py   --data_root /path/to/data   # GPU recommended
+```
+
+To evaluate a checkpoint instead of training, pass `--checkpoint` (see
+[Pretrained models](#pretrained-models-hugging-face) for using the paper's own weights this way):
+
+```bash
+python lp_lstm.py --data_root /path/to/data --checkpoint checkpoints/lp_lstm.pt
+python smelp.py   --data_root /path/to/data --checkpoint checkpoints/smelp.pt
 ```
 
 **Notes:**
@@ -159,7 +179,7 @@ python lp_lstm.py --checkpoint checkpoints/lp_lstm.pt
 
 ```bibtex
 @inproceedings{luisi26_interspeech,
-  title     = {Smooth Formant Tracking with Differentiable Linear Prediction},
+  title     = {{Smooth Formant Tracking with Differentiable Linear Prediction}},
   author    = {Bryn Luisi and Lauri Juvela},
   year      = {2026},
   booktitle = {{Interspeech 2026}},
